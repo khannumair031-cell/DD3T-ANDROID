@@ -1,0 +1,56 @@
+
+name: Build DD3T Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download project
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Extract Android project
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -iname '*.zip' -type f | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: Project ZIP not found!"
+            exit 1
+          fi
+          mkdir android-project
+          unzip -q "$ZIP_FILE" -d android-project
+
+      - name: Build APK
+        run: |
+          GRADLEW=$(find android-project -name gradlew -type f | head -n 1)
+          if [ -z "$GRADLEW" ]; then
+            echo "ERROR: gradlew not found!"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          chmod +x "$GRADLEW"
+          cd "$PROJECT_DIR"
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DD3T-APK
+          path: android-project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          
